@@ -4,35 +4,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { margin:0; background:#000; overflow:hidden; }
-        #v { position:absolute; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
-        .p { position:absolute; border-radius:50%; pointer-events:none; background:white; }
+        #v { position:absolute; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); opacity:0.2; }
+        #c { position:absolute; top:0; left:0; }
     </style>
 </head>
 <body>
     <video id="v" autoplay playsinline></video>
+    <canvas id="c"></canvas>
     <script>
-        const v = document.getElementById('v');
+        const v = document.getElementById('v'), c = document.getElementById('c'), ctx = c.getContext('2d');
+        let particles = [], x = window.innerWidth/2, y = window.innerHeight/2;
+
         navigator.mediaDevices.getUserMedia({video: true}).then(s => v.srcObject = s);
 
-        // 随机在屏幕上生成“光点”
-        function create() {
-            const p = document.createElement('div');
-            p.className = 'p';
-            const size = Math.random() * 20 + 10;
-            p.style.width = p.style.height = size + 'px';
-            p.style.left = Math.random() * window.innerWidth + 'px';
-            p.style.top = Math.random() * window.innerHeight + 'px';
-            p.style.background = `hsl(${Math.random()*360}, 100%, 70%)`;
-            p.style.boxShadow = "0 0 15px white";
-            document.body.appendChild(p);
-            setTimeout(() => p.remove(), 1000);
+        // 粒子系统：增加重力感和阻尼感
+        function createParticle(tx, ty) {
+            for(let i=0; i<3; i++) {
+                particles.push({
+                    x: tx, y: ty,
+                    vx: (Math.random()-0.5)*8,
+                    vy: (Math.random()-0.5)*8,
+                    size: Math.random()*6 + 2,
+                    life: 1.0,
+                    hue: Math.random()*60 + 180 // 偏向科幻蓝/青色系
+                });
+            }
         }
-        
-        // 既然追踪算法会被封杀，我们改为“触摸触发”或者“画面剧烈晃动触发”
-        // 这里设定为每当画面检测到亮度突变时触发（不需要读取像素）
-        v.addEventListener('playing', () => {
-            setInterval(create, 200); 
-        });
+
+        function animate() {
+            // 滤色模式：叠加发光效果的核心
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(0,0,0,0.15)'; 
+            ctx.fillRect(0,0,c.width,c.height);
+            ctx.globalCompositeOperation = 'lighter'; 
+
+            // 模拟手势追踪位置 (这里你可以通过后续引入简单的色彩定位来精准跟随)
+            x += ( (window.innerWidth/2 + Math.sin(Date.now()/500)*200) - x) * 0.1;
+            y += ( (window.innerHeight/2 + Math.cos(Date.now()/500)*200) - y) * 0.1;
+            createParticle(x, y);
+
+            particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy;
+                p.life -= 0.015;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = `hsl(${p.hue}, 100%, 50%)`;
+                ctx.fillStyle = `hsl(${p.hue}, 100%, 50%)`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
+                ctx.fill();
+                if(p.life <= 0) particles.splice(i, 1);
+            });
+            requestAnimationFrame(animate);
+        }
+        c.width = window.innerWidth; c.height = window.innerHeight;
+        animate();
     </script>
 </body>
 </html>
