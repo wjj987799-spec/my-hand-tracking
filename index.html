@@ -1,41 +1,60 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin:0; background:#000; overflow:hidden; }
-        #output { position:absolute; width:100%; height:100%; object-fit:cover; }
-        .particle { position:absolute; border-radius:50%; pointer-events:none; }
+        #output { position:absolute; width:100%; height:100%; object-fit:cover; z-index:1; }
+        #status { position:absolute; top:20px; left:20px; color:#0f0; z-index:10; font-family:sans-serif; }
+        .particle { position:absolute; border-radius:50%; pointer-events:none; z-index:5; }
     </style>
 </head>
 <body>
+    <div id="status">正在加载 AI 模型...</div>
     <video id="output" autoplay playsinline></video>
+
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
     <script>
-        const hands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1 });
+        const status = document.getElementById('status');
+        const video = document.getElementById('output');
         
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+        
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5 });
+
         hands.onResults(res => {
-            if(res.multiHandLandmarks?.length) {
+            if(res.multiHandLandmarks?.length > 0) {
+                status.innerText = "状态：检测到手！";
                 const x = res.multiHandLandmarks[0][8].x * window.innerWidth;
                 const y = res.multiHandLandmarks[0][8].y * window.innerHeight;
                 createParticle(x, y);
+            } else {
+                status.innerText = "状态：请把手放入画面中";
             }
         });
 
         function createParticle(x, y) {
             const p = document.createElement('div');
             p.className = 'particle';
-            p.style.left = x + 'px'; p.style.top = y + 'px';
-            p.style.width = p.style.height = (Math.random()*10+5) + 'px';
+            const size = Math.random() * 15 + 5;
+            p.style.width = p.style.height = size + 'px';
+            p.style.left = (x - size/2) + 'px';
+            p.style.top = (y - size/2) + 'px';
             p.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 50%)`;
             document.body.appendChild(p);
-            setTimeout(() => p.remove(), 500); // 粒子500ms后消失
+            setTimeout(() => p.remove(), 600);
         }
 
-        const video = document.getElementById('output');
-        new Camera(video, { onFrame: async () => await hands.send({image: video}), width: 640, height: 480 }).start();
+        const camera = new Camera(video, {
+            onFrame: async () => await hands.send({image: video}),
+            width: 640, height: 480
+        });
+        camera.start().then(() => status.innerText = "状态：正在寻找手部...");
     </script>
 </body>
 </html>
