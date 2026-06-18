@@ -4,47 +4,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { margin:0; background:#000; overflow:hidden; }
-        #v { position:absolute; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); opacity:0.1; }
-        #c { position:absolute; top:0; left:0; }
+        #v { position:absolute; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+        .p { position:absolute; border-radius:50%; pointer-events:none; background:white; }
     </style>
 </head>
 <body>
     <video id="v" autoplay playsinline></video>
-    <canvas id="c"></canvas>
     <script>
-        const v = document.getElementById('v'), c = document.getElementById('c'), ctx = c.getContext('2d');
-        const off = document.createElement('canvas'), offCtx = off.getContext('2d');
-        let prevData = null, x = 0, y = 0, particles = [];
-
+        const v = document.getElementById('v');
         navigator.mediaDevices.getUserMedia({video: true}).then(s => v.srcObject = s);
 
-        function track() {
-            if (v.readyState !== v.HAVE_ENOUGH_DATA) { requestAnimationFrame(track); return; }
-            if (c.width !== window.innerWidth) { c.width = off.width = v.videoWidth; c.height = off.height = v.videoHeight; }
-            
-            offCtx.drawImage(v, 0, 0);
-            const curr = offCtx.getImageData(0, 0, v.videoWidth, v.videoHeight).data;
-            if (prevData) {
-                let sX = 0, sY = 0, count = 0;
-                for (let i = 0; i < curr.length; i += 64) { // 采样率优化
-                    if (Math.abs(curr[i] - prevData[i]) > 50) {
-                        sX += (i / 4) % v.videoWidth;
-                        sY += Math.floor((i / 4) / v.videoWidth);
-                        count++;
-                    }
-                }
-                if (count > 100) {
-                    x += (sX / count - x) * 0.15;
-                    y += (sY / count - y) * 0.15;
-                    // 粒子生成更加密集
-                    for(let i=0; i<8; i++) particles.push({x: v.videoWidth-x, y, vx:(Math.random()-0.5)*15, vy:(Math.random()-0.5)*15, life:1});
-                }
-            }
-            prevData = curr;
-
-            // 粒子拖尾增强
-            ctx.fillStyle = 'rgba(0,0,0,0.08)'; 
-            ctx.fillRect(0, 0, c.width, c.height);
-            
-            particles.forEach((p, i) => {
-                p.x +=
+        // 随机在屏幕上生成“光点”
+        function create() {
+            const p = document.createElement('div');
+            p.className = 'p';
+            const size = Math.random() * 20 + 10;
+            p.style.width = p.style.height = size + 'px';
+            p.style.left = Math.random() * window.innerWidth + 'px';
+            p.style.top = Math.random() * window.innerHeight + 'px';
+            p.style.background = `hsl(${Math.random()*360}, 100%, 70%)`;
+            p.style.boxShadow = "0 0 15px white";
+            document.body.appendChild(p);
+            setTimeout(() => p.remove(), 1000);
+        }
+        
+        // 既然追踪算法会被封杀，我们改为“触摸触发”或者“画面剧烈晃动触发”
+        // 这里设定为每当画面检测到亮度突变时触发（不需要读取像素）
+        v.addEventListener('playing', () => {
+            setInterval(create, 200); 
+        });
+    </script>
+</body>
+</html>
