@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手势交互</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <style>
+        body { margin:0; background:#000; overflow:hidden; touch-action:none; }
+        #startBtn { position:absolute; top:40%; left:50%; transform:translate(-50%,-50%); padding:20px; color:#fff; border:1px solid #fff; z-index:999; }
+    </style>
+</head>
+<body>
+    <div id="startBtn" onclick="initCamera()">点击启动摄像头</div>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        let finger = {x:0, y:0};
+
+        // 核心初始化逻辑
+        async function initCamera() {
+            document.getElementById('startBtn').innerText = "加载中...";
+            const hands = new Hands({locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+            hands.setOptions({maxNumHands: 1, modelComplexity: 1});
+            hands.onResults(res => {
+                if(res.multiHandLandmarks?.length) {
+                    finger.x = res.multiHandLandmarks[0][8].x * canvas.width;
+                    finger.y = res.multiHandLandmarks[0][8].y * canvas.height;
+                }
+            });
+
+            const video = document.createElement('video');
+            const camera = new Camera(video, {
+                onFrame: async () => await hands.send({image: video}),
+                width: 640, height: 480
+            });
+            await camera.start();
+            document.getElementById('startBtn').style.display = 'none';
+        }
+
+        function draw() {
+            ctx.fillStyle = 'rgba(0,0,0,0.1)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(finger.x, finger.y, 10, 0, Math.PI*2); ctx.fill();
+            requestAnimationFrame(draw);
+        }
+        draw();
+    </script>
+</body>
+</html>
