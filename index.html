@@ -1,28 +1,52 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>手势粒子交互</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <style>
-        body { margin:0; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; color:white; }
-        video { width: 90%; border: 2px solid #0f0; border-radius: 10px; }
+        body { margin:0; background:#000; overflow:hidden; touch-action:none; }
+        #canvas { display:block; }
     </style>
 </head>
 <body>
-    <p id="status">正在请求摄像头...</p>
-    <video id="webcam" autoplay playsinline></video>
+    <video id="webcam" style="display:none" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
     <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        let finger = {x:0, y:0};
+
+        const hands = new Hands({
+            locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1 });
+        hands.onResults(res => {
+            if(res.multiHandLandmarks?.length) {
+                finger.x = res.multiHandLandmarks[0][8].x * canvas.width;
+                finger.y = res.multiHandLandmarks[0][8].y * canvas.height;
+            }
+        });
+
         async function start() {
             const video = document.getElementById('webcam');
-            const status = document.getElementById('status');
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                video.srcObject = stream;
-                status.innerText = "摄像头画面已接入！";
-            } catch (err) {
-                status.innerText = "错误: " + err.message;
-            }
+            const camera = new Camera(video, {
+                onFrame: async () => await hands.send({image: video}),
+                width: 640, height: 480
+            });
+            await camera.start();
         }
         start();
+
+        function draw() {
+            ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(finger.x, finger.y, 10, 0, Math.PI*2); ctx.fill();
+            requestAnimationFrame(draw);
+        }
+        draw();
     </script>
 </body>
 </html>
