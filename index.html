@@ -2,36 +2,46 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>body { background: #000; color: #fff; font-family: monospace; }</style>
+    <style>body { background: #000; color: #0f0; font-family: monospace; padding: 20px; }</style>
 </head>
 <body>
-    <div id="log">正在加载 AI 模型...</div>
+    <div id="log">正在强制激活模型...</div>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script>
-        const log = (m) => document.getElementById('log').innerHTML += "<br>> " + m;
+        const logDiv = document.getElementById('log');
+        const log = (m) => logDiv.innerHTML += "<br>> " + m;
         
-        async function run() {
+        async function start() {
             try {
                 const hands = new Hands({
                     locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
                 });
-                hands.setOptions({ maxNumHands: 1, modelComplexity: 1 });
-                hands.onResults(res => log("识别到手部数据!")); // 只要模型动起来，这里就会刷屏
+                hands.setOptions({ maxNumHands: 1, modelComplexity: 0 });
                 
-                log("模型已准备，准备调用摄像头...");
+                // 监听数据，一旦有手就刷新屏幕
+                hands.onResults(results => {
+                    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                        log("检测到手！坐标: " + Math.round(results.multiHandLandmarks[0][8].x * 100));
+                    }
+                });
+
                 const video = document.createElement('video');
+                video.setAttribute('playsinline', '');
+                
                 const camera = new Camera(video, {
-                    onFrame: async () => await hands.send({image: video}),
+                    onFrame: async () => {
+                        await hands.send({image: video});
+                    },
                     width: 640, height: 480
                 });
                 await camera.start();
-                log("摄像头已激活！");
+                log("摄像头已强行接管，请将手放入画面中心...");
             } catch (e) {
-                log("致命错误: " + e);
+                log("错误: " + e);
             }
         }
-        run();
+        start();
     </script>
 </body>
 </html>
