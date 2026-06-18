@@ -4,7 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { margin:0; background:#000; overflow:hidden; }
-        #v { position:absolute; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); opacity:0.2; }
+        #v { position:absolute; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); opacity:0.1; }
         #c { position:absolute; top:0; left:0; }
     </style>
 </head>
@@ -13,51 +13,29 @@
     <canvas id="c"></canvas>
     <script>
         const v = document.getElementById('v'), c = document.getElementById('c'), ctx = c.getContext('2d');
-        let particles = [], x = window.innerWidth/2, y = window.innerHeight/2;
+        const off = document.createElement('canvas'), offCtx = off.getContext('2d');
+        let prevData = null, x = 0, y = 0, particles = [];
 
         navigator.mediaDevices.getUserMedia({video: true}).then(s => v.srcObject = s);
 
-        // 粒子系统：增加重力感和阻尼感
-        function createParticle(tx, ty) {
-            for(let i=0; i<3; i++) {
-                particles.push({
-                    x: tx, y: ty,
-                    vx: (Math.random()-0.5)*8,
-                    vy: (Math.random()-0.5)*8,
-                    size: Math.random()*6 + 2,
-                    life: 1.0,
-                    hue: Math.random()*60 + 180 // 偏向科幻蓝/青色系
-                });
-            }
-        }
-
-        function animate() {
-            // 滤色模式：叠加发光效果的核心
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = 'rgba(0,0,0,0.15)'; 
-            ctx.fillRect(0,0,c.width,c.height);
-            ctx.globalCompositeOperation = 'lighter'; 
-
-            // 模拟手势追踪位置 (这里你可以通过后续引入简单的色彩定位来精准跟随)
-            x += ( (window.innerWidth/2 + Math.sin(Date.now()/500)*200) - x) * 0.1;
-            y += ( (window.innerHeight/2 + Math.cos(Date.now()/500)*200) - y) * 0.1;
-            createParticle(x, y);
-
-            particles.forEach((p, i) => {
-                p.x += p.vx; p.y += p.vy;
-                p.life -= 0.015;
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = `hsl(${p.hue}, 100%, 50%)`;
-                ctx.fillStyle = `hsl(${p.hue}, 100%, 50%)`;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
-                ctx.fill();
-                if(p.life <= 0) particles.splice(i, 1);
-            });
-            requestAnimationFrame(animate);
-        }
-        c.width = window.innerWidth; c.height = window.innerHeight;
-        animate();
-    </script>
-</body>
-</html>
+        function track() {
+            if (v.readyState !== v.HAVE_ENOUGH_DATA) { requestAnimationFrame(track); return; }
+            if (c.width !== window.innerWidth) { c.width = off.width = v.videoWidth; c.height = off.height = v.videoHeight; }
+            
+            offCtx.drawImage(v, 0, 0);
+            const curr = offCtx.getImageData(0, 0, v.videoWidth, v.videoHeight).data;
+            if (prevData) {
+                let sX = 0, sY = 0, count = 0;
+                for (let i = 0; i < curr.length; i += 128) { // 降低采样以换取流畅度
+                    if (Math.abs(curr[i] - prevData[i]) > 80) {
+                        sX += (i / 4) % v.videoWidth;
+                        sY += Math.floor((i / 4) / v.videoWidth);
+                        count++;
+                    }
+                }
+                if (count > 50) {
+                    x += (sX / count - x) * 0.3;
+                    y += (sY / count - y) * 0.3;
+                    // 严格限制粒子生成上限，防止卡死
+                    if (particles.length < 200) {
+                        for(let i=0; i<3; i++) particles.push({x:
