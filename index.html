@@ -16,17 +16,22 @@
         const hands = new Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.3 });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 0 });
         
+        // 关键改动：强制将视频帧直接画到 Canvas 上
         hands.onResults(results => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // 绘制视频原图
+            if (results.image) {
+                ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            }
+            // 绘制手部骨架
             if (results.multiHandLandmarks) {
                 for (const landmarks of results.multiHandLandmarks) {
-                    // 只要识别到手，直接画出坐标点
                     ctx.fillStyle = '#0f0';
                     landmarks.forEach(lm => {
                         ctx.beginPath();
-                        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 8, 0, 2 * Math.PI);
+                        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 5, 0, 2 * Math.PI);
                         ctx.fill();
                     });
                 }
