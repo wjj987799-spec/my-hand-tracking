@@ -1,52 +1,72 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>手势交互</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>手势追踪系统</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <style>
-        body { margin:0; background:#000; overflow:hidden; touch-action:none; }
-        #startBtn { position:absolute; top:40%; left:50%; transform:translate(-50%,-50%); padding:20px; color:#fff; border:1px solid #fff; z-index:999; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
+        #canvas { display: block; }
+        #startBtn { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            padding: 20px 40px; color: #fff; background: rgba(255,255,255,0.2);
+            border: 1px solid #fff; border-radius: 10px; cursor: pointer; z-index: 1000;
+        }
     </style>
 </head>
 <body>
-    <div id="startBtn" onclick="initCamera()">点击启动摄像头</div>
+    <div id="startBtn" onclick="startCamera()">点击启动手势识别</div>
     <canvas id="canvas"></canvas>
+
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-        let finger = {x:0, y:0};
+        
+        let finger = {x: 0, y: 0};
+        
+        // 初始化 Hands 模型
+        const hands = new Hands({
+            locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+        
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5 });
+        hands.onResults(results => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmark = results.multiHandLandmarks[0][8]; // 取食指尖
+                finger.x = landmark.x * canvas.width;
+                finger.y = landmark.y * canvas.height;
+            }
+        });
 
-        // 核心初始化逻辑
-        async function initCamera() {
-            document.getElementById('startBtn').innerText = "加载中...";
-            const hands = new Hands({locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            hands.setOptions({maxNumHands: 1, modelComplexity: 1});
-            hands.onResults(res => {
-                if(res.multiHandLandmarks?.length) {
-                    finger.x = res.multiHandLandmarks[0][8].x * canvas.width;
-                    finger.y = res.multiHandLandmarks[0][8].y * canvas.height;
-                }
-            });
-
-            const video = document.createElement('video');
-            const camera = new Camera(video, {
-                onFrame: async () => await hands.send({image: video}),
-                width: 640, height: 480
-            });
-            await camera.start();
-            document.getElementById('startBtn').style.display = 'none';
+        async function startCamera() {
+            document.getElementById('startBtn').innerText = "启动中...";
+            try {
+                const video = document.createElement('video');
+                const camera = new Camera(video, {
+                    onFrame: async () => await hands.send({image: video}),
+                    width: 640, height: 480
+                });
+                await camera.start();
+                document.getElementById('startBtn').style.display = 'none';
+            } catch (e) {
+                alert("启动摄像头失败，请检查浏览器权限：" + e);
+            }
         }
 
-        function draw() {
-            ctx.fillStyle = 'rgba(0,0,0,0.1)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-            ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(finger.x, finger.y, 10, 0, Math.PI*2); ctx.fill();
-            requestAnimationFrame(draw);
+        // 简单的动画循环
+        function animate() {
+            ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#0ff';
+            ctx.beginPath();
+            ctx.arc(finger.x, finger.y, 15, 0, Math.PI * 2);
+            ctx.fill();
+            requestAnimationFrame(animate);
         }
-        draw();
+        animate();
     </script>
 </body>
 </html>
