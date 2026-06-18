@@ -1,52 +1,36 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>手势粒子交互</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-    <style>
-        body { margin:0; background:#000; overflow:hidden; touch-action:none; }
-        #canvas { display:block; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>body { background: #000; color: #fff; font-family: monospace; padding: 20px; }</style>
 </head>
 <body>
-    <video id="webcam" style="display:none" autoplay playsinline></video>
-    <canvas id="canvas"></canvas>
+    <div id="log">正在尝试加载...</div>
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-        let finger = {x:0, y:0};
+        const logDiv = document.getElementById('log');
+        function log(msg) { logDiv.innerHTML += "<br>> " + msg; }
+        
+        window.onerror = (e) => log("错误: " + e);
+        
+        // 尝试加载必要的脚本
+        const scripts = [
+            "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js",
+            "https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"
+        ];
 
-        const hands = new Hands({
-            locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-        });
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1 });
-        hands.onResults(res => {
-            if(res.multiHandLandmarks?.length) {
-                finger.x = res.multiHandLandmarks[0][8].x * canvas.width;
-                finger.y = res.multiHandLandmarks[0][8].y * canvas.height;
+        async function load() {
+            for(const url of scripts) {
+                await new Promise((res, rej) => {
+                    const s = document.createElement('script');
+                    s.src = url;
+                    s.onload = () => { log("加载成功: " + url.split('/').pop()); res(); };
+                    s.onerror = () => { log("加载失败: " + url.split('/').pop()); rej(); };
+                    document.body.appendChild(s);
+                });
             }
-        });
-
-        async function start() {
-            const video = document.getElementById('webcam');
-            const camera = new Camera(video, {
-                onFrame: async () => await hands.send({image: video}),
-                width: 640, height: 480
-            });
-            await camera.start();
+            log("所有库已加载，正在启动模型...");
         }
-        start();
-
-        function draw() {
-            ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(0,0,canvas.width,canvas.height);
-            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(finger.x, finger.y, 10, 0, Math.PI*2); ctx.fill();
-            requestAnimationFrame(draw);
-        }
-        draw();
+        load();
     </script>
 </body>
 </html>
