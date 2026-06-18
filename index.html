@@ -4,7 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { margin:0; background:#000; overflow:hidden; }
-        #v { position:absolute; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); opacity:0.3; }
+        #v { position:absolute; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); opacity:0.1; }
         #c { position:absolute; top:0; left:0; }
     </style>
 </head>
@@ -26,31 +26,25 @@
             const curr = offCtx.getImageData(0, 0, v.videoWidth, v.videoHeight).data;
             if (prevData) {
                 let sX = 0, sY = 0, count = 0;
-                for (let i = 0; i < curr.length; i += 32) {
-                    if (Math.abs(curr[i] - prevData[i]) > 60) {
+                for (let i = 0; i < curr.length; i += 64) { // 采样率优化
+                    if (Math.abs(curr[i] - prevData[i]) > 50) {
                         sX += (i / 4) % v.videoWidth;
                         sY += Math.floor((i / 4) / v.videoWidth);
                         count++;
                     }
                 }
-                if (count > 200) {
-                    x += (sX / count - x) * 0.2;
-                    y += (sY / count - y) * 0.2;
-                    for(let i=0; i<5; i++) particles.push({x: v.videoWidth-x, y, vx:(Math.random()-0.5)*10, vy:(Math.random()-0.5)*10, life:1});
+                if (count > 100) {
+                    x += (sX / count - x) * 0.15;
+                    y += (sY / count - y) * 0.15;
+                    // 粒子生成更加密集
+                    for(let i=0; i<8; i++) particles.push({x: v.videoWidth-x, y, vx:(Math.random()-0.5)*15, vy:(Math.random()-0.5)*15, life:1});
                 }
             }
             prevData = curr;
 
-            ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(0, 0, c.width, c.height);
+            // 粒子拖尾增强
+            ctx.fillStyle = 'rgba(0,0,0,0.08)'; 
+            ctx.fillRect(0, 0, c.width, c.height);
+            
             particles.forEach((p, i) => {
-                p.x += p.vx; p.y += p.vy; p.life -= 0.02;
-                ctx.fillStyle = `hsla(${Math.random()*360}, 80%, 60%, ${p.life})`;
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.life*8, 0, Math.PI*2); ctx.fill();
-                if (p.life <= 0) particles.splice(i, 1);
-            });
-            requestAnimationFrame(track);
-        }
-        v.onloadedmetadata = () => track();
-    </script>
-</body>
-</html>
+                p.x +=
