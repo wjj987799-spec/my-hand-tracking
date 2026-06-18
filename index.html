@@ -1,72 +1,28 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>手势追踪系统</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { margin: 0; background: #000; overflow: hidden; touch-action: none; }
-        #canvas { display: block; }
-        #startBtn { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            padding: 20px 40px; color: #fff; background: rgba(255,255,255,0.2);
-            border: 1px solid #fff; border-radius: 10px; cursor: pointer; z-index: 1000;
-        }
+        body { margin:0; background:#000; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; color:white; }
+        video { width: 90%; border: 2px solid #0f0; border-radius: 10px; }
     </style>
 </head>
 <body>
-    <div id="startBtn" onclick="startCamera()">点击启动手势识别</div>
-    <canvas id="canvas"></canvas>
-
+    <p id="status">正在请求摄像头...</p>
+    <video id="webcam" autoplay playsinline></video>
     <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-        
-        let finger = {x: 0, y: 0};
-        
-        // 初始化 Hands 模型
-        const hands = new Hands({
-            locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-        });
-        
-        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5 });
-        hands.onResults(results => {
-            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmark = results.multiHandLandmarks[0][8]; // 取食指尖
-                finger.x = landmark.x * canvas.width;
-                finger.y = landmark.y * canvas.height;
-            }
-        });
-
-        async function startCamera() {
-            document.getElementById('startBtn').innerText = "启动中...";
+        async function start() {
+            const video = document.getElementById('webcam');
+            const status = document.getElementById('status');
             try {
-                const video = document.createElement('video');
-                const camera = new Camera(video, {
-                    onFrame: async () => await hands.send({image: video}),
-                    width: 640, height: 480
-                });
-                await camera.start();
-                document.getElementById('startBtn').style.display = 'none';
-            } catch (e) {
-                alert("启动摄像头失败，请检查浏览器权限：" + e);
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                status.innerText = "摄像头画面已接入！";
+            } catch (err) {
+                status.innerText = "错误: " + err.message;
             }
         }
-
-        // 简单的动画循环
-        function animate() {
-            ctx.fillStyle = 'rgba(0,0,0,0.2)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#0ff';
-            ctx.beginPath();
-            ctx.arc(finger.x, finger.y, 15, 0, Math.PI * 2);
-            ctx.fill();
-            requestAnimationFrame(animate);
-        }
-        animate();
+        start();
     </script>
 </body>
 </html>
