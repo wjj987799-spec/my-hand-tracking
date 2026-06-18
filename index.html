@@ -2,46 +2,43 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>body { background: #000; color: #0f0; font-family: monospace; padding: 20px; }</style>
+    <style>body { margin:0; background:#000; }</style>
 </head>
 <body>
-    <div id="log">正在强制激活模型...</div>
+    <canvas id="canvas"></canvas>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
     <script>
-        const logDiv = document.getElementById('log');
-        const log = (m) => logDiv.innerHTML += "<br>> " + m;
-        
-        async function start() {
-            try {
-                const hands = new Hands({
-                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-                });
-                hands.setOptions({ maxNumHands: 1, modelComplexity: 0 });
-                
-                // 监听数据，一旦有手就刷新屏幕
-                hands.onResults(results => {
-                    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                        log("检测到手！坐标: " + Math.round(results.multiHandLandmarks[0][8].x * 100));
-                    }
-                });
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
 
-                const video = document.createElement('video');
-                video.setAttribute('playsinline', '');
-                
-                const camera = new Camera(video, {
-                    onFrame: async () => {
-                        await hands.send({image: video});
-                    },
-                    width: 640, height: 480
-                });
-                await camera.start();
-                log("摄像头已强行接管，请将手放入画面中心...");
-            } catch (e) {
-                log("错误: " + e);
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 0, minDetectionConfidence: 0.3 });
+        
+        hands.onResults(results => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (results.multiHandLandmarks) {
+                for (const landmarks of results.multiHandLandmarks) {
+                    // 只要识别到手，直接画出坐标点
+                    ctx.fillStyle = '#0f0';
+                    landmarks.forEach(lm => {
+                        ctx.beginPath();
+                        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 8, 0, 2 * Math.PI);
+                        ctx.fill();
+                    });
+                }
             }
-        }
-        start();
+        });
+
+        const video = document.createElement('video');
+        const camera = new Camera(video, {
+            onFrame: async () => await hands.send({image: video}),
+            width: 640, height: 480
+        });
+        camera.start();
     </script>
 </body>
 </html>
