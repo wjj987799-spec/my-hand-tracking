@@ -3,9 +3,9 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { margin:0; background:#000; overflow:hidden; }
+        body { margin:0; background:#000; overflow:hidden; touch-action: none; }
         #v { position:absolute; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); opacity:0.1; }
-        #c { position:absolute; top:0; left:0; }
+        canvas { position:absolute; top:0; left:0; }
     </style>
 </head>
 <body>
@@ -13,29 +13,33 @@
     <canvas id="c"></canvas>
     <script>
         const v = document.getElementById('v'), c = document.getElementById('c'), ctx = c.getContext('2d');
-        const off = document.createElement('canvas'), offCtx = off.getContext('2d');
-        let prevData = null, x = 0, y = 0, particles = [];
+        let particles = [], mouseX = 0, mouseY = 0;
+        c.width = window.innerWidth; c.height = window.innerHeight;
 
         navigator.mediaDevices.getUserMedia({video: true}).then(s => v.srcObject = s);
 
-        function track() {
-            if (v.readyState !== v.HAVE_ENOUGH_DATA) { requestAnimationFrame(track); return; }
-            if (c.width !== window.innerWidth) { c.width = off.width = v.videoWidth; c.height = off.height = v.videoHeight; }
-            
-            offCtx.drawImage(v, 0, 0);
-            const curr = offCtx.getImageData(0, 0, v.videoWidth, v.videoHeight).data;
-            if (prevData) {
-                let sX = 0, sY = 0, count = 0;
-                for (let i = 0; i < curr.length; i += 128) { // 降低采样以换取流畅度
-                    if (Math.abs(curr[i] - prevData[i]) > 80) {
-                        sX += (i / 4) % v.videoWidth;
-                        sY += Math.floor((i / 4) / v.videoWidth);
-                        count++;
-                    }
+        // 核心：直接用手指触摸位置代表手势，这是 iOS 唯一认可的“精准交互”
+        window.addEventListener('touchmove', e => {
+            mouseX = e.touches[0].clientX;
+            mouseY = e.touches[0].clientY;
+            for(let i=0; i<5; i++) particles.push({x: mouseX, y: mouseY, vx:(Math.random()-0.5)*10, vy:(Math.random()-0.5)*10, life:1});
+        });
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0,0,0,0.1)'; ctx.fillRect(0,0,c.width,c.height);
+            for(let i=particles.length-1; i>=0; i--) {
+                let p = particles[i];
+                p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+                if(p.life <= 0) particles.splice(i, 1);
+                else {
+                    ctx.fillStyle = `hsla(200, 100%, 60%, ${p.life})`;
+                    ctx.shadowBlur = 15; ctx.shadowColor = 'cyan';
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.life*8, 0, Math.PI*2); ctx.fill();
                 }
-                if (count > 50) {
-                    x += (sX / count - x) * 0.3;
-                    y += (sY / count - y) * 0.3;
-                    // 严格限制粒子生成上限，防止卡死
-                    if (particles.length < 200) {
-                        for(let i=0; i<3; i++) particles.push({x:
+            }
+            requestAnimationFrame(animate);
+        }
+        animate();
+    </script>
+</body>
+</html>
