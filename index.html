@@ -1,66 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { margin:0; background:#000510; overflow:hidden; touch-action: none; }
-        canvas { display:block; }
+        body { margin:0; background:#000512; overflow:hidden; touch-action: none; }
+        svg { width:100vw; height:100vh; display:block; }
+        .node { fill: url(#nodeGlow); filter: drop-shadow(0 0 8px rgba(0, 200, 255, 0.8)); }
+        .line { stroke: rgba(100, 200, 255, 0.4); stroke-width: 0.8; }
     </style>
 </head>
 <body>
-    <canvas id="c"></canvas>
+    <svg id="svg">
+        <defs>
+            <radialGradient id="nodeGlow">
+                <stop offset="0%" stop-color="#fff"/>
+                <stop offset="100%" stop-color="#00d2ff"/>
+            </radialGradient>
+        </defs>
+    </svg>
     <script>
-        const c = document.getElementById('c'), ctx = c.getContext('2d');
-        c.width = window.innerWidth; c.height = window.innerHeight;
-        let particles = [];
-
-        class Particle {
-            constructor(x, y) {
-                this.x = x; this.y = y;
-                this.vx = (Math.random() - 0.5) * 2;
-                this.vy = (Math.random() - 0.5) * 2;
-                this.size = Math.random() * 2 + 1;
-                this.color = Math.random() > 0.5 ? '#00d2ff' : '#9d50bb';
-            }
-            update() { this.x += this.vx; this.y += this.vy; }
-            draw() {
-                ctx.fillStyle = this.color;
-                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
-            }
-        }
-
-        function init() {
-            for(let i=0; i<80; i++) particles.push(new Particle(Math.random()*c.width, Math.random()*c.height));
-        }
+        const svg = document.getElementById('svg');
+        const nodes = [];
 
         window.addEventListener('touchmove', e => {
-            particles.push(new Particle(e.touches[0].clientX, e.touches[0].clientY));
-            if(particles.length > 150) particles.shift();
-        });
-
-        function animate() {
-            ctx.fillStyle = 'rgba(0, 5, 15, 0.2)';
-            ctx.fillRect(0, 0, c.width, c.height);
+            const x = e.touches[0].clientX;
+            const y = e.touches[0].clientY;
             
-            for(let i=0; i<particles.length; i++) {
-                particles[i].update();
-                particles[i].draw();
-                
-                // 自动连接逻辑
-                for(let j=i+1; j<particles.length; j++) {
-                    let d = Math.hypot(particles[i].x - particles[j].x, particles[i].y - particles[j].y);
-                    if(d < 100) {
-                        ctx.strokeStyle = `rgba(100, 200, 255, ${1 - d/100})`;
-                        ctx.lineWidth = 0.5;
-                        ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y);
-                        ctx.lineTo(particles[j].x, particles[j].y); ctx.stroke();
-                    }
-                }
-            }
-            requestAnimationFrame(animate);
-        }
-        init();
-        animate();
-    </script>
-</body>
-</html>
+            // 创建节点
+            const node = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            node.setAttribute("cx", x);
+            node.setAttribute("cy", y);
+            node.setAttribute("r", "4");
+            node.setAttribute("class", "node");
+            svg.appendChild(node);
+            nodes.push({el: node, x, y});
+
+            // 自动连接逻辑：如果节点超过 2 个，自动绘制连线
+            if(nodes.length > 1) {
+                const prev = nodes[nodes.length - 2];
+                const line = document.createElement
