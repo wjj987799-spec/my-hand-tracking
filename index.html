@@ -1,42 +1,44 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body { margin:0; background:#000512; overflow:hidden; touch-action: none; }
-        svg { width:100vw; height:100vh; display:block; }
-        .node { fill: url(#nodeGlow); filter: drop-shadow(0 0 8px rgba(0, 200, 255, 0.8)); }
-        .line { stroke: rgba(100, 200, 255, 0.4); stroke-width: 0.8; }
-    </style>
-</head>
-<body>
-    <svg id="svg">
-        <defs>
-            <radialGradient id="nodeGlow">
-                <stop offset="0%" stop-color="#fff"/>
-                <stop offset="100%" stop-color="#00d2ff"/>
-            </radialGradient>
-        </defs>
-    </svg>
-    <script>
-        const svg = document.getElementById('svg');
-        const nodes = [];
+<html style="height:100%">
+<body style="margin:0; height:100%; background:#000; overflow:hidden;">
+<canvas id="c" style="display:block; width:100%; height:100%;"></canvas>
+<script>
+    const c = document.getElementById('c'), gl = c.getContext('webgl');
+    c.width = window.innerWidth; c.height = window.innerHeight;
 
-        window.addEventListener('touchmove', e => {
-            const x = e.touches[0].clientX;
-            const y = e.touches[0].clientY;
-            
-            // 创建节点
-            const node = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            node.setAttribute("cx", x);
-            node.setAttribute("cy", y);
-            node.setAttribute("r", "4");
-            node.setAttribute("class", "node");
-            svg.appendChild(node);
-            nodes.push({el: node, x, y});
+    // 顶点着色器：计算粒子位置
+    const vs = `attribute vec2 p; void main() { gl_Position = vec4(p, 0, 1); gl_PointSize = 2.0; }`;
+    // 片元着色器：通过 GLSL 直接渲染发光粒子流，这是高端视觉效果的核心
+    const fs = `precision highp float; uniform float t; uniform vec2 r; void main() { 
+        vec2 uv = (gl_FragCoord.xy * 2.0 - r) / min(r.x, r.y);
+        vec3 col = vec3(0.0);
+        for(float i=0.0; i<5.0; i++) {
+            uv += 0.2 * sin(uv.yx * 2.0 + t + i);
+            col += 0.05 / abs(length(uv) - 0.5);
+        }
+        gl_FragColor = vec4(col * vec3(0.1, 0.6, 1.0), 1.0);
+    }`;
 
-            // 自动连接逻辑：如果节点超过 2 个，自动绘制连线
-            if(nodes.length > 1) {
-                const prev = nodes[nodes.length - 2];
-                const line = document.createElement
+    // WebGL 编译代码略，此框架可直接在手机上实现极速渲染
+    function createShader(gl, type, source) {
+        const s = gl.createShader(type); gl.shaderSource(s, source); gl.compileShader(s); return s;
+    }
+    const program = gl.createProgram();
+    gl.attachShader(program, createShader(gl, gl.VERTEX_SHADER, vs));
+    gl.attachShader(program, createShader(gl, gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(program); gl.useProgram(program);
+
+    const buffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+    const p = gl.getAttribLocation(program, "p"); gl.enableVertexAttribArray(p); gl.vertexAttribPointer(p, 2, gl.FLOAT, false, 0, 0);
+
+    const uT = gl.getUniformLocation(program, "t"), uR = gl.getUniformLocation(program, "r");
+    function render(time) {
+        gl.uniform1f(uT, time * 0.001); gl.uniform2f(uR, c.width, c.height);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        requestAnimationFrame(render);
+    }
+    render(0);
+</script>
+</body>
+</html>
